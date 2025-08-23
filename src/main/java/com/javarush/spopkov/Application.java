@@ -37,7 +37,6 @@ public class Application {
         } catch (CaesarCipherException e) {
             System.out.println("Error: " + e.getMessage());
         }
-
         System.out.println("The program has terminated."); // информируем пользователя
     }
 
