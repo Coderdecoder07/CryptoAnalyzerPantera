@@ -16,7 +16,7 @@ public class Encoder implements Actions {
             Path outputPath = projectDir.resolve(outputPathStr);
 
             if (!Files.exists(inputPath)) {
-                throw new CaesarCipherException("Файл для шифрования не найден: " + inputPath.toAbsolutePath());
+                throw new CaesarCipherException("File for encryption not found: " + inputPath.toAbsolutePath());
             }
 
             String text = Files.readString(inputPath);
@@ -24,15 +24,15 @@ public class Encoder implements Actions {
 
             Files.writeString(outputPath, encrypted);
 
-            System.out.println("Файл зашифрован -> " + outputPath.toAbsolutePath());
+            System.out.println("File encrypted -> " + outputPath.toAbsolutePath());
         } catch (IOException e) {
-            throw new CaesarCipherException("Ошибка шифрования: " + e.getMessage());
+            throw new CaesarCipherException("Encryption error: " + e.getMessage());
         }
     }
 
     @Override
     public void decrypt(String inputPath, String outputPath, int key) throws CaesarCipherException {
-        throw new CaesarCipherException("Для расшифровки используйте Decoder.");
+        throw new CaesarCipherException("Use Decoder for decryption.");
     }
 
     private String shift(String text, int key) {
