@@ -1,6 +1,8 @@
-package com.javarush.spopkov.constants;
+package com.javarush.spopkov.сommands;
 
 import com.javarush.spopkov.CaesarCipherException;
+import com.javarush.spopkov.constants.Actions;
+import com.javarush.spopkov.constants.Constants;
 
 import java.io.IOException;
 import java.nio.file.Files;
