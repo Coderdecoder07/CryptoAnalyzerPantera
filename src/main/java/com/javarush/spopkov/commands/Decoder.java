@@ -61,16 +61,16 @@ public class Decoder implements Actions {
                 continue;
             }
 
-            // Check: Numbers and Symbols
-            int indexNumSymb = Constants.NUMBERS_SYMBOLS.indexOf(upperC);
+            // Check: Numbers and Symbols (без toUpperCase!)
+            int indexNumSymb = Constants.NUMBERS_SYMBOLS.indexOf(c);
             if (indexNumSymb != -1) {
-                int newIndex = (indexNumSymb + key) % Constants.NUMBERS_SYMBOLS.length();
+                int newIndex = (indexNumSymb - key + Constants.NUMBERS_SYMBOLS.length()) % Constants.NUMBERS_SYMBOLS.length();
                 char newChar = Constants.NUMBERS_SYMBOLS.charAt(newIndex);
-                result.append(Character.isLowerCase(c) ? Character.toLowerCase(newChar) : newChar);
+                result.append(newChar);
                 continue;
             }
 
-            // If not a letter
+            // If not found in alphabets
             result.append(c);
         }
         return result.toString();
