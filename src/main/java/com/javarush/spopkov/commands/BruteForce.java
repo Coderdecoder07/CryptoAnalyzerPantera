@@ -23,30 +23,29 @@ public class BruteForce {
             }
 
             String encryptedText = Files.readString(encryptedPath);
+            Set<String> dictionary = loadDictionary(dictPath);
 
-            // Loading dictionary, if available
-            Set<String> dictionary = getStrings(dictPath);
-
-            // Selecting the best shift
+            // Try all shifts for Russian letters
             int bestShiftRus = findBestShift(encryptedText, Constants.RUS_ALPHABET, dictionary);
+            // Try all shifts for English letters
             int bestShiftEng = findBestShift(encryptedText, Constants.ENG_ALPHABET, dictionary);
 
-            // Decrypting with the found keys
+            // Decrypt text using the best shifts
             String decryptedText = decryptText(encryptedText, bestShiftRus, bestShiftEng);
 
             Files.writeString(outputPath, decryptedText);
-            System.out.println("Brute force completed, best result -> " + outputPath.toAbsolutePath());
+            System.out.println("Brute force completed -> " + outputPath.toAbsolutePath());
 
         } catch (IOException e) {
             throw new CaesarCipherException("Error while working with files: " + e.getMessage());
         }
     }
 
-    private static Set<String> getStrings(Path dictPath) throws IOException {
+    private Set<String> loadDictionary(Path dictPath) throws IOException {
         Set<String> dictionary = new HashSet<>();
         if (Files.exists(dictPath)) {
             for (String word : Files.readString(dictPath).split("\\W+")) {
-                dictionary.add(word.toLowerCase());
+                if (!word.isEmpty()) dictionary.add(word.toLowerCase());
             }
         }
         return dictionary;
@@ -54,7 +53,6 @@ public class BruteForce {
 
     private String decryptText(String text, int keyRus, int keyEng) {
         StringBuilder result = new StringBuilder();
-
         for (char c : text.toCharArray()) {
             char upperC = Character.toUpperCase(c);
 
@@ -74,9 +72,9 @@ public class BruteForce {
                 continue;
             }
 
+            // Numbers and symbols remain unchanged
             result.append(c);
         }
-
         return result.toString();
     }
 
@@ -86,7 +84,7 @@ public class BruteForce {
 
         for (int shift = 0; shift < alphabet.length(); shift++) {
             String shifted = shiftText(text, shift, alphabet);
-            double score = evaluateText(shifted, dictionary, alphabet);
+            double score = evaluateText(shifted, dictionary);
 
             if (score > bestScore) {
                 bestScore = score;
@@ -99,17 +97,18 @@ public class BruteForce {
 
     private String shiftText(String text, int key, String alphabet) {
         StringBuilder result = new StringBuilder();
-        int size = alphabet.length();
+        int len = alphabet.length();
 
         for (char c : text.toCharArray()) {
             char upperC = Character.toUpperCase(c);
             int index = alphabet.indexOf(upperC);
 
             if (index != -1) {
-                int newIndex = (index + key) % size;
+                int newIndex = (index - key + len) % len; // shift backward
                 char newChar = alphabet.charAt(newIndex);
                 result.append(Character.isLowerCase(c) ? Character.toLowerCase(newChar) : newChar);
             } else {
+                // Non-letter characters remain unchanged
                 result.append(c);
             }
         }
@@ -117,24 +116,13 @@ public class BruteForce {
         return result.toString();
     }
 
-    // Evaluating the decrypted text
-    private double evaluateText(String text, Set<String> dictionary, String alphabet) {
-        String[] words = text.split("\\W+");
+    private double evaluateText(String text, Set<String> dictionary) {
+        if (dictionary.isEmpty()) return 0;
+
         double score = 0;
-
-        for (String word : words) {
-            if (word.isEmpty()) continue;
-            String lower = word.toLowerCase();
-
-            // Dictionary found — checking for matches
-            if (!dictionary.isEmpty() && dictionary.contains(lower)) {
-                score += 1.0;
-            }
-
-            // For an unknown dictionary, using word length
-            score += Math.min(word.length(), 5);
+        for (String word : text.split("\\W+")) {
+            if (!word.isEmpty() && dictionary.contains(word.toLowerCase())) score += 1;
         }
-
         return score;
     }
 }
