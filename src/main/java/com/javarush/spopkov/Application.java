@@ -1,9 +1,9 @@
 package com.javarush.spopkov;
 
-import com.javarush.spopkov.constants.Analyze;
-import com.javarush.spopkov.constants.BruteForce;
-import com.javarush.spopkov.constants.Decoder;
-import com.javarush.spopkov.constants.Encoder;
+import com.javarush.spopkov.commands.Analyze;
+import com.javarush.spopkov.commands.BruteForce;
+import com.javarush.spopkov.commands.Decoder;
+import com.javarush.spopkov.commands.Encoder;
 
 import java.util.Scanner;
 
@@ -37,7 +37,7 @@ public class Application {
         } catch (CaesarCipherException e) {
             System.out.println("Error: " + e.getMessage());
         }
-        System.out.println("The program has terminated."); // информируем пользователя
+        System.out.println("The program has terminated.");
     }
 
     private int getKey(Scanner scanner) {
