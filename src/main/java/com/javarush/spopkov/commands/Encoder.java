@@ -1,4 +1,4 @@
-package com.javarush.spopkov.сommands;
+package com.javarush.spopkov.commands;
 
 import com.javarush.spopkov.CaesarCipherException;
 import com.javarush.spopkov.constants.Actions;
@@ -44,19 +44,28 @@ public class Encoder implements Actions {
             char upperC = Character.toUpperCase(c);
 
             // Check: Russian alphabet
-            int indexRus = Constants.RusAlphabet.indexOf(upperC);
+            int indexRus = Constants.RUS_ALPHABET.indexOf(upperC);
             if (indexRus != -1) {
-                int newIndex = (indexRus + key) % Constants.RusAlphabet.length();
-                char newChar = Constants.RusAlphabet.charAt(newIndex);
+                int newIndex = (indexRus + key) % Constants.RUS_ALPHABET.length();
+                char newChar = Constants.RUS_ALPHABET.charAt(newIndex);
                 result.append(Character.isLowerCase(c) ? Character.toLowerCase(newChar) : newChar);
                 continue;
             }
 
             // Check: English alphabet
-            int indexEng = Constants.EngAlphabet.indexOf(upperC);
+            int indexEng = Constants.ENG_ALPHABET.indexOf(upperC);
             if (indexEng != -1) {
-                int newIndex = (indexEng + key) % Constants.EngAlphabet.length();
-                char newChar = Constants.EngAlphabet.charAt(newIndex);
+                int newIndex = (indexEng + key) % Constants.ENG_ALPHABET.length();
+                char newChar = Constants.ENG_ALPHABET.charAt(newIndex);
+                result.append(Character.isLowerCase(c) ? Character.toLowerCase(newChar) : newChar);
+                continue;
+            }
+
+            // Check: Numbers and Symbols
+            int indexNumSymb = Constants.NUMBERS_SYMBOLS.indexOf(upperC);
+            if (indexNumSymb != -1) {
+                int newIndex = (indexNumSymb + key) % Constants.NUMBERS_SYMBOLS.length();
+                char newChar = Constants.NUMBERS_SYMBOLS.charAt(newIndex);
                 result.append(Character.isLowerCase(c) ? Character.toLowerCase(newChar) : newChar);
                 continue;
             }
