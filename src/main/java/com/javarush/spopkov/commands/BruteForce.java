@@ -1,128 +1,234 @@
 package com.javarush.spopkov.commands;
 
-import com.javarush.spopkov.CaesarCipherException;
 import com.javarush.spopkov.constants.Constants;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
+
 
 public class BruteForce {
 
-    public void decrypt(String encryptedPathStr, String outputPathStr) throws CaesarCipherException {
+    private static final String DICT_PATH = "text/dict.txt";
+
+    // A small built-in fallback dictionary (common Russian words/particles)
+    private static final String[] FALLBACK_WORDS = new String[]{
+            "И","В","НЕ","НА","Я","ОН","ОНА","ОНИ","ЭТО","К","С","У","ПО","А","НО","ДА",
+            "ЧТО","КАК","ЕСЛИ","ТО","ДЛЯ","БЫЛ","БЫЛА","БЫЛО","БЫТЬ","МОЖЕТ","КОТОРЫЙ",
+            "ЖЕ","ЛИ","ЕГО","ЕЕ","ИХ","ТАК","УЖЕ","ТЕ","МЫ","ТЫ","МНЕ","ТЕБЕ","НАС",
+            "ОТ","ДО","ИЗ","ЗА","ПРИ","ПОСЛЕ","ПЕРЕД","ТУТ","ТАМ","ТОЛЬКО","ЕЩЕ"
+    };
+
+    private static final Set<Character> TOP_RUS_LETTERS = new HashSet<>(
+            Arrays.asList('О','Е','А','И','Н','Т','С','Р','В','Л','К','М','Д','П','У')
+    );
+
+    private static final String[] BAD_BIGRAMS = new String[]{
+            "ЪЪ","ЬЬ","ЙЙ","ЫЫ","ЪЬ","ЬЪ","ЪЫ","ЬЫ","ЙЪ","ЙЬ","ЪЙ","ЬЙ"
+    };
+
+    // Roman numeral letters (both cases) — we must NOT touch these
+    private static final Set<Character> ROMAN_CHARS = new HashSet<>(
+            Arrays.asList('I','V','X','L','C','D','M','i','v','x','l','c','d','m')
+    );
+
+    public void decrypt(String inputPathStr, String outputPathStr) {
         try {
             Path projectDir = Path.of(System.getProperty("user.dir"));
-            Path encryptedPath = projectDir.resolve(encryptedPathStr);
-            Path dictPath = projectDir.resolve("text/dict.txt");
+            Path inputPath  = projectDir.resolve(inputPathStr);
             Path outputPath = projectDir.resolve(outputPathStr);
 
-            if (!Files.exists(encryptedPath)) {
-                throw new CaesarCipherException("File for decryption not found: " + encryptedPath.toAbsolutePath());
+            if (!Files.exists(inputPath)) {
+                System.out.println("Encrypted file not found: " + inputPath.toAbsolutePath());
+                return;
             }
 
-            String encryptedText = Files.readString(encryptedPath);
-            Set<String> dictionary = loadDictionary(dictPath);
+            if (outputPath.getParent() != null) Files.createDirectories(outputPath.getParent());
 
-            // Try all shifts for Russian letters
-            int bestShiftRus = findBestShift(encryptedText, Constants.RUS_ALPHABET, dictionary);
-            // Try all shifts for English letters
-            int bestShiftEng = findBestShift(encryptedText, Constants.ENG_ALPHABET, dictionary);
+            String encrypted = Files.readString(inputPath);
+            Set<String> dict = loadDictionaryOrFallback(projectDir.resolve(DICT_PATH));
 
-            // Decrypt text using the best shifts
-            String decryptedText = decryptText(encryptedText, bestShiftRus, bestShiftEng);
+            String bestText = "";
+            int bestScore = Integer.MIN_VALUE;
+            int bestKey = -1;
 
-            Files.writeString(outputPath, decryptedText);
-            System.out.println("Brute force completed -> " + outputPath.toAbsolutePath());
+            int alphabetSize = Constants.RUS_ALPHABET.length();
+            int totalKeys = alphabetSize;
+
+            for (int key = 0; key < alphabetSize; key++) {
+                String candidate = shiftLikeDecoder(encrypted, key);
+                int score = evaluateCandidate(candidate, dict);
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestText = candidate;
+                    bestKey = key;
+                }
+            }
+
+            Files.writeString(outputPath, bestText);
+
+            // Print summary: only total count + best key (as requested)
+            System.out.println("Total keys: " + totalKeys);
+            System.out.println("Best key: " + bestKey);
+            System.out.println("Decrypted text saved to: " + outputPath.toAbsolutePath());
 
         } catch (IOException e) {
-            throw new CaesarCipherException("Error while working with files: " + e.getMessage());
+            System.out.println("File error: " + e.getMessage());
         }
     }
 
-    private Set<String> loadDictionary(Path dictPath) throws IOException {
-        Set<String> dictionary = new HashSet<>();
-        if (Files.exists(dictPath)) {
-            for (String word : Files.readString(dictPath).split("\\W+")) {
-                if (!word.isEmpty()) dictionary.add(word.toLowerCase());
-            }
-        }
-        return dictionary;
-    }
+    private String shiftLikeDecoder(String text, int key) {
+        StringBuilder sb = new StringBuilder();
+        String RUS = Constants.RUS_ALPHABET;
+        String SYM = Constants.NUMBERS_SYMBOLS;
 
-    private String decryptText(String text, int keyRus, int keyEng) {
-        StringBuilder result = new StringBuilder();
         for (char c : text.toCharArray()) {
-            char upperC = Character.toUpperCase(c);
-
-            int indexRus = Constants.RUS_ALPHABET.indexOf(upperC);
-            if (indexRus != -1) {
-                int newIndex = (indexRus - keyRus + Constants.RUS_ALPHABET.length()) % Constants.RUS_ALPHABET.length();
-                char newChar = Constants.RUS_ALPHABET.charAt(newIndex);
-                result.append(Character.isLowerCase(c) ? Character.toLowerCase(newChar) : newChar);
+            // 1a) Always leave Latin letters untouched (keeps Roman numerals and other Latin text intact)
+            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
+                sb.append(c);
                 continue;
             }
 
-            int indexEng = Constants.ENG_ALPHABET.indexOf(upperC);
-            if (indexEng != -1) {
-                int newIndex = (indexEng - keyEng + Constants.ENG_ALPHABET.length()) % Constants.ENG_ALPHABET.length();
-                char newChar = Constants.ENG_ALPHABET.charAt(newIndex);
-                result.append(Character.isLowerCase(c) ? Character.toLowerCase(newChar) : newChar);
+            // 1b) Additionally, explicitly protect Roman-numeral characters (just in case)
+            if (ROMAN_CHARS.contains(c)) {
+                sb.append(c);
                 continue;
             }
 
-            // Numbers and symbols remain unchanged
-            result.append(c);
-        }
-        return result.toString();
-    }
-
-    private int findBestShift(String text, String alphabet, Set<String> dictionary) {
-        int bestShift = 0;
-        double bestScore = -1;
-
-        for (int shift = 0; shift < alphabet.length(); shift++) {
-            String shifted = shiftText(text, shift, alphabet);
-            double score = evaluateText(shifted, dictionary);
-
-            if (score > bestScore) {
-                bestScore = score;
-                bestShift = shift;
+            // 2) Russian letter? (lookup in uppercase alphabet)
+            char up = Character.toUpperCase(c);
+            int idxRus = RUS.indexOf(up);
+            if (idxRus != -1) {
+                int newIndex = (idxRus - key + RUS.length()) % RUS.length();
+                char mapped = RUS.charAt(newIndex);
+                sb.append(Character.isLowerCase(c) ? Character.toLowerCase(mapped) : mapped);
+                continue;
             }
-        }
 
-        return bestShift;
-    }
-
-    private String shiftText(String text, int key, String alphabet) {
-        StringBuilder result = new StringBuilder();
-        int len = alphabet.length();
-
-        for (char c : text.toCharArray()) {
-            char upperC = Character.toUpperCase(c);
-            int index = alphabet.indexOf(upperC);
-
-            if (index != -1) {
-                int newIndex = (index - key + len) % len; // shift backward
-                char newChar = alphabet.charAt(newIndex);
-                result.append(Character.isLowerCase(c) ? Character.toLowerCase(newChar) : newChar);
-            } else {
-                // Non-letter characters remain unchanged
-                result.append(c);
+            // 3) Number/symbol ring — use the raw char index (Decoder used raw char for symbols)
+            int idxSym = SYM.indexOf(c);
+            if (idxSym != -1) {
+                int newIndex = (idxSym - key + SYM.length()) % SYM.length();
+                sb.append(SYM.charAt(newIndex));
+                continue;
             }
-        }
 
-        return result.toString();
+            // 4) Unknown char — keep as is
+            sb.append(c);
+        }
+        return sb.toString();
     }
 
-    private double evaluateText(String text, Set<String> dictionary) {
-        if (dictionary.isEmpty()) return 0;
 
-        double score = 0;
-        for (String word : text.split("\\W+")) {
-            if (!word.isEmpty() && dictionary.contains(word.toLowerCase())) score += 1;
-        }
+    private int evaluateCandidate(String text, Set<String> dict) {
+        int score = 0;
+        score += scoreDictionary(text, dict);
+        score += scoreFrequentLetters(text);
+        score += scorePunctuation(text);
+        score -= penaltyBadBigrams(text);
+        score -= penaltyConsonantRuns(text);
         return score;
+    }
+
+    private int scoreDictionary(String text, Set<String> dict) {
+        int points = 0;
+        String[] words = text.split("[^А-ЯЁа-яё]+");
+        for (String w : words) {
+            if (w.isEmpty()) continue;
+            String up = w.toUpperCase(Locale.ROOT);
+            if (dict.contains(up)) {
+                if (up.length() == 1) points += 2;
+                else if (up.length() <= 3) points += 4;
+                else points += 6 + up.length() / 2;
+            }
+        }
+        return points;
+    }
+
+    private int scoreFrequentLetters(String text) {
+        int rusCount = 0, topCount = 0;
+        for (char ch : text.toCharArray()) {
+            char up = Character.toUpperCase(ch);
+            boolean isRus = (up >= 'А' && up <= 'Я') || up == 'Ё';
+            if (isRus) {
+                rusCount++;
+                if (TOP_RUS_LETTERS.contains(up)) topCount++;
+            }
+        }
+        if (rusCount == 0) return -50;
+        int ratio = (int) Math.round(100.0 * topCount / rusCount);
+        return ratio;
+    }
+
+    private int scorePunctuation(String text) {
+        int good = 0, bad = 0;
+        good += countOccurrences(text, ". ");
+        good += countOccurrences(text, ", ");
+        good += countOccurrences(text, "! ");
+        good += countOccurrences(text, "? ");
+        good += countOccurrences(text, " — ");
+
+        bad += countOccurrences(text, " ,");
+        bad += countOccurrences(text, " .");
+        bad += countOccurrences(text, " !");
+        bad += countOccurrences(text, " ?");
+        bad += countOccurrences(text, "  ");
+
+        return good * 2 - bad * 3;
+    }
+
+    private int penaltyBadBigrams(String text) {
+        String up = text.toUpperCase(Locale.ROOT);
+        int penalty = 0;
+        for (String bg : BAD_BIGRAMS) {
+            penalty += 10 * countOccurrences(up, bg);
+        }
+        return penalty;
+    }
+
+    private int penaltyConsonantRuns(String text) {
+        String up = text.toUpperCase(Locale.ROOT);
+        Set<Character> vowels = new HashSet<>(Arrays.asList('А','О','У','Э','Ы','Е','Ё','И','Ю','Я'));
+        int run = 0, penalty = 0;
+        for (int i = 0; i < up.length(); i++) {
+            char ch = up.charAt(i);
+            boolean isRus = (ch >= 'А' && ch <= 'Я') || ch == 'Ё';
+            if (!isRus) { run = 0; continue; }
+            if (!vowels.contains(ch)) {
+                run++;
+                if (run >= 5) penalty += 3;
+            } else {
+                run = 0;
+            }
+        }
+        return penalty;
+    }
+
+    private int countOccurrences(String text, String needle) {
+        if (needle.isEmpty()) return 0;
+        int idx = 0, cnt = 0;
+        while ((idx = text.indexOf(needle, idx)) != -1) {
+            cnt++;
+            idx += needle.length();
+        }
+        return cnt;
+    }
+
+    private Set<String> loadDictionaryOrFallback(Path dictPath) {
+        Set<String> dict = new HashSet<>();
+        try {
+            if (Files.exists(dictPath)) {
+                for (String line : Files.readAllLines(dictPath)) {
+                    String w = line.trim();
+                    if (!w.isEmpty()) dict.add(w.toUpperCase(Locale.ROOT));
+                }
+            }
+        } catch (IOException ignored) {}
+        if (dict.isEmpty()) {
+            for (String w : FALLBACK_WORDS) dict.add(w.toUpperCase(Locale.ROOT));
+        }
+        return dict;
     }
 }

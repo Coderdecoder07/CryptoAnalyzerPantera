@@ -37,7 +37,7 @@ public class Decoder implements Actions {
         }
     }
 
-    private String shift(String text, int key) {
+    String shift(String text, int key) {
         StringBuilder result = new StringBuilder();
 
         for (char c : text.toCharArray()) {
@@ -52,17 +52,8 @@ public class Decoder implements Actions {
                 continue;
             }
 
-            // Check: English alphabet
-            int indexEng = Constants.ENG_ALPHABET.indexOf(upperC);
-            if (indexEng != -1) {
-                int newIndex = (indexEng - key + Constants.ENG_ALPHABET.length()) % Constants.ENG_ALPHABET.length();
-                char newChar = Constants.ENG_ALPHABET.charAt(newIndex);
-                result.append(Character.isLowerCase(c) ? Character.toLowerCase(newChar) : newChar);
-                continue;
-            }
-
-            // Check: Numbers and Symbols (без toUpperCase!)
-            int indexNumSymb = Constants.NUMBERS_SYMBOLS.indexOf(c);
+            // Check: Numbers and Symbols
+            int indexNumSymb = Constants.NUMBERS_SYMBOLS.indexOf(upperC);
             if (indexNumSymb != -1) {
                 int newIndex = (indexNumSymb - key + Constants.NUMBERS_SYMBOLS.length()) % Constants.NUMBERS_SYMBOLS.length();
                 char newChar = Constants.NUMBERS_SYMBOLS.charAt(newIndex);
@@ -70,7 +61,7 @@ public class Decoder implements Actions {
                 continue;
             }
 
-            // If not found in alphabets
+            // If not found in alphabets, just append the original character
             result.append(c);
         }
         return result.toString();

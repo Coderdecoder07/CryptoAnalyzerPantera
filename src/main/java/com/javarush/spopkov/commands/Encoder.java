@@ -37,13 +37,20 @@ public class Encoder implements Actions {
         throw new CaesarCipherException("Use Decoder for decryption.");
     }
 
+    // Encrypt only Russian letters and symbols/numbers, leave Latin letters untouched
     private String shift(String text, int key) {
         StringBuilder result = new StringBuilder();
 
         for (char c : text.toCharArray()) {
-            char upperC = Character.toUpperCase(c);
 
-            // Check: Russian alphabet
+            // Leave Latin letters untouched (A-Z, a-z)
+            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
+                result.append(c);
+                continue;
+            }
+
+            // Russian letters
+            char upperC = Character.toUpperCase(c);
             int indexRus = Constants.RUS_ALPHABET.indexOf(upperC);
             if (indexRus != -1) {
                 int newIndex = (indexRus + key) % Constants.RUS_ALPHABET.length();
@@ -52,27 +59,18 @@ public class Encoder implements Actions {
                 continue;
             }
 
-            // Check: English alphabet
-            int indexEng = Constants.ENG_ALPHABET.indexOf(upperC);
-            if (indexEng != -1) {
-                int newIndex = (indexEng + key) % Constants.ENG_ALPHABET.length();
-                char newChar = Constants.ENG_ALPHABET.charAt(newIndex);
-                result.append(Character.isLowerCase(c) ? Character.toLowerCase(newChar) : newChar);
-                continue;
-            }
-
-            // Check: Numbers and Symbols
-            int indexNumSymb = Constants.NUMBERS_SYMBOLS.indexOf(upperC);
+            // Numbers & symbols
+            int indexNumSymb = Constants.NUMBERS_SYMBOLS.indexOf(c);
             if (indexNumSymb != -1) {
                 int newIndex = (indexNumSymb + key) % Constants.NUMBERS_SYMBOLS.length();
-                char newChar = Constants.NUMBERS_SYMBOLS.charAt(newIndex);
-                result.append(Character.isLowerCase(c) ? Character.toLowerCase(newChar) : newChar);
+                result.append(Constants.NUMBERS_SYMBOLS.charAt(newIndex));
                 continue;
             }
 
-            // If not a letter
+            // Other characters (punctuation, spaces, etc.) leave unchanged
             result.append(c);
         }
+
         return result.toString();
     }
 }
